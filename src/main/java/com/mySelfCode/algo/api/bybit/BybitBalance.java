@@ -1,8 +1,8 @@
 package com.mySelfCode.algo.api.bybit;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonArray;
 import com.mySelfCode.algo.cfg.BybitConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -17,6 +17,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Formatter;
 
 @Service
@@ -25,54 +27,23 @@ public class BybitBalance {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
+    private final BybitTimeService bybitTimeService;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitBalance(WebClient.Builder webClientBuilder, BybitConfig bybitConfig) {
+    public BybitBalance(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BybitTimeService bybitTimeService) {
         this.bybitConfig = bybitConfig;
+        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
-    public double getWalletBalance(String symbol) {
-        String timestamp = String.valueOf(Instant.now().toEpochMilli());
-        String recvWindow = "5000";
-        String accountType = "UNIFIED";
-
-        String queryString = String.format("accountType=%s&coin=%s", accountType, symbol.toUpperCase());
-        String signature = generateSignature(timestamp, bybitConfig.getKey(), recvWindow, queryString);
-
-        try {
-            String jsonResponse = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/v5/account/wallet-balance")
-                            .queryParam("accountType", accountType)
-                            .queryParam("coin", symbol)
-                            .build())
-                    .header("X-BAPI-API-KEY", bybitConfig.getKey())
-                    .header("X-BAPI-TIMESTAMP", timestamp)
-                    .header("X-BAPI-RECV-WINDOW", recvWindow)
-                    .header("X-BAPI-SIGN", signature)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            double balance = extractBalanceFromJson(jsonResponse, symbol.toUpperCase());
-            return balance;
-
-        } catch (Exception e) {
-            this.accept = false;
-            logger.error("Error while take bybit balance {}: {}", symbol, e.getMessage());
-            throw new RuntimeException("Error getting balance for " + symbol + ": " + e.getMessage(), e);
-        }
-    }
-
-    public double getCoinBalance(String symbol) {
-        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+    public double getBalance(String symbol) {
+        String timestamp = String.valueOf(bybitTimeService.getServerTime());
         String recvWindow = "5000";
         String accountType = "UNIFIED";
 
@@ -94,14 +65,72 @@ public class BybitBalance {
                     .bodyToMono(String.class)
                     .block();
 
-            double coinBalance = extractBalanceFromJson(jsonResponse, symbol.toUpperCase());
-            return coinBalance;
+            return extractBalanceFromJson(jsonResponse, symbol.toUpperCase());
 
         } catch (Exception e) {
             this.accept = false;
-            logger.error("Error take coin balance on bybit {}: {}", symbol, e.getMessage());
-            throw new RuntimeException("Error getting coin balance for " + symbol + ": " + e.getMessage(), e);
+            logger.error("Error while take bybit balance {}: {}", symbol, e.getMessage());
+            throw new RuntimeException("Error getting balance for " + symbol + ": " + e.getMessage(), e);
         }
+    }
+
+    public Map<String, Double> getAllCoins() {
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+        String recvWindow = "5000";
+        String accountType = "UNIFIED";
+
+        String queryString = String.format("accountType=%s", accountType);
+        String signature = generateSignature(timestamp, bybitConfig.getKey(), recvWindow, queryString);
+
+        try {
+            String jsonResponse = webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v5/account/wallet-balance")
+                            .queryParam("accountType", accountType)
+                            .build())
+                    .header("X-BAPI-API-KEY", bybitConfig.getKey())
+                    .header("X-BAPI-TIMESTAMP", timestamp)
+                    .header("X-BAPI-RECV-WINDOW", recvWindow)
+                    .header("X-BAPI-SIGN", signature)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            return extractAllCoins(jsonResponse);
+
+        } catch (Exception e) {
+            logger.error("Error getting all coins from bybit: {}", e.getMessage());
+            throw new RuntimeException("Error getting all coins: " + e.getMessage(), e);
+        }
+    }
+
+    private Map<String, Double> extractAllCoins(String jsonResponse) {
+        Map<String, Double> result = new HashMap<>();
+        try {
+            JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
+            int retCode = root.get("retCode").getAsInt();
+            if (retCode != 0) throw new RuntimeException("Bybit API error: " + root.get("retMsg").getAsString());
+
+            JsonObject res = root.getAsJsonObject("result");
+            JsonArray list = res.getAsJsonArray("list");
+
+            if (list.size() > 0) {
+                JsonObject account = list.get(0).getAsJsonObject();
+                JsonArray coins = account.getAsJsonArray("coin");
+                for (int i = 0; i < coins.size(); i++) {
+                    JsonObject coin = coins.get(i).getAsJsonObject();
+                    String coinName = coin.get("coin").getAsString();
+                    String balStr = coin.get("walletBalance").getAsString();
+                    if (balStr != null && !balStr.isEmpty()) {
+                        double bal = Double.parseDouble(balStr);
+                        if (bal > 0) result.put(coinName, bal);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error parsing all coins from bybit: {}", e.getMessage());
+        }
+        return result;
     }
 
     private double extractBalanceFromJson(String jsonResponse, String targetCoin) {
@@ -139,13 +168,14 @@ public class BybitBalance {
                     }
                 }
             }
-
             return 0.0;
-
         } catch (Exception e) {
             throw new RuntimeException("Error parsing Bybit response: " + e.getMessage());
         }
     }
+
+    public double getWalletBalance(String symbol) { return getBalance(symbol); }
+    public double getCoinBalance(String symbol) { return getBalance(symbol); }
 
     private String generateSignature(String timestamp, String apiKey, String recvWindow, String queryString) {
         try {
@@ -162,9 +192,7 @@ public class BybitBalance {
 
     private String bytesToHex(byte[] bytes) {
         try (Formatter formatter = new Formatter()) {
-            for (byte b : bytes) {
-                formatter.format("%02x", b);
-            }
+            for (byte b : bytes) formatter.format("%02x", b);
             return formatter.toString();
         }
     }

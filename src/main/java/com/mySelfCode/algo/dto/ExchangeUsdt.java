@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 @Component
-public class StarterInfo {
-    private volatile String symbol;
-    private volatile double percent;
+public class ExchangeUsdt {
+    private volatile double bybitUsdt;
+    private volatile double kucoinUsdt;
 }

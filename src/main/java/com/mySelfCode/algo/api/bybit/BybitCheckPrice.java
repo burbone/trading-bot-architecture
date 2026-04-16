@@ -4,9 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mySelfCode.algo.cfg.BybitConfig;
-import com.mySelfCode.algo.dto.StarterInfo;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,40 +16,36 @@ public class BybitCheckPrice {
     private static final Logger logger = LoggerFactory.getLogger(BybitCheckPrice.class);
 
     private final WebClient webClient;
-    private final StarterInfo starterInfo;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitCheckPrice(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, StarterInfo starterInfo) {
-        this.starterInfo = starterInfo;
+    public BybitCheckPrice(WebClient.Builder webClientBuilder, BybitConfig bybitConfig) {
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .build();
     }
 
-    public double[] bybitCheckPrice() {
-        String symbol = starterInfo.getSymbol().replaceAll(" ", "");
+    public double[] bybitCheckPrice(String bybitSymbol) {
         try {
-            String formattedSymbol = symbol.replace(" ", "");
             String response = webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/v5/market/orderbook")
                             .queryParam("category", "spot")
-                            .queryParam("symbol", formattedSymbol)
+                            .queryParam("symbol", bybitSymbol)
                             .build())
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
             double[] prices = extractPricesFromJson(response);
-            logger.debug("Success take prices from bybit for {}: ask={}, bid={}", symbol, prices[1], prices[0]);
+            //logger.debug("Success take prices from bybit for {}: ask={}, bid={}", bybitSymbol, prices[1], prices[0]);
 
             return prices;
         } catch (Exception e) {
             this.accept = false;
-            logger.error("Error take prices from bybit for {}", symbol + e.getMessage());
+            logger.error("Error take prices from bybit for {}: {}", bybitSymbol, e.getMessage());
             throw new RuntimeException("Error take prices from bybit");
         }
     }
@@ -68,11 +62,9 @@ public class BybitCheckPrice {
 
             JsonObject result = root.getAsJsonObject("result");
 
-            // Получаем bid (b)
             JsonArray bidArray = result.getAsJsonArray("b");
             double bid = bidArray.get(0).getAsJsonArray().get(0).getAsDouble();
 
-            // Получаем ask (a)
             JsonArray askArray = result.getAsJsonArray("a");
             double ask = askArray.get(0).getAsJsonArray().get(0).getAsDouble();
 

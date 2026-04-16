@@ -4,9 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
-import com.mySelfCode.algo.dto.LastOrderIds;
-import com.mySelfCode.algo.dto.MinMountTrade;
-import com.mySelfCode.algo.dto.StarterInfo;
+import com.mySelfCode.algo.dto.TradingPair;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +21,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Formatter;
+import java.util.UUID;
 
 @Service
 public class BybitBuyCrypto {
@@ -30,33 +29,36 @@ public class BybitBuyCrypto {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
-    private final StarterInfo starterInfo;
-    private final LastOrderIds lastOrderIds;
-    private final MinMountTrade minMountTrade;
     private final BotConfig botConfig;
+    private final BybitTimeService bybitTimeService;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitBuyCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, StarterInfo starterInfo, LastOrderIds lastOrderIds, MinMountTrade minMountTrade, BotConfig botConfig) {
+    public BybitBuyCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig, BybitTimeService bybitTimeService) {
         this.bybitConfig = bybitConfig;
-        this.starterInfo = starterInfo;
-        this.lastOrderIds = lastOrderIds;
-        this.minMountTrade = minMountTrade;
         this.botConfig = botConfig;
+        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
-    public void buyMarket(Double amount) {
+    public void buyMarket(TradingPair pair, double amount, int usdtPrecision) {
+        String symbol = pair.getBybitSymbol();
+
+        if (botConfig.isSimulationMode()) {
+            String fakeOrderId = "SIM-BYBIT-BUY-" + UUID.randomUUID().toString().substring(0, 8);
+            pair.setBybitBuyOrderId(fakeOrderId);
+            logger.info("[SIMULATION] Bybit - buy - {} - {} USDT - orderId: {}", symbol, amount, fakeOrderId);
+            return;
+        }
+
         amount = amount * (1 - botConfig.getBybitFee() * 5);
-        BigDecimal amountBig = BigDecimal.valueOf(amount)
-                .setScale(minMountTrade.getMinUsdtPrecisionBybit(), RoundingMode.FLOOR);
-        String symbol = starterInfo.getSymbol().replaceAll(" ", "");
-        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+        BigDecimal amountBig = BigDecimal.valueOf(amount).setScale(usdtPrecision, RoundingMode.FLOOR);
+        String timestamp = String.valueOf(bybitTimeService.getServerTime());
         String recvWindow = "5000";
 
         JsonObject orderData = new JsonObject();
@@ -90,8 +92,7 @@ public class BybitBuyCrypto {
             JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
             JsonObject result = root.getAsJsonObject("result");
             String orderId = result.get("orderId").getAsString();
-            lastOrderIds.setBybitBuyOrderId(orderId);
-
+            pair.setBybitBuyOrderId(orderId);
             logger.info("Bybit - buy - {} - {} - USDT", symbol, amount);
 
         } catch (Exception e) {
@@ -104,10 +105,8 @@ public class BybitBuyCrypto {
     private void validateResponse(String jsonResponse) {
         JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
         int retCode = root.get("retCode").getAsInt();
-
         if (retCode != 0) {
-            String retMsg = root.get("retMsg").getAsString();
-            throw new RuntimeException("Bybit API error: " + retMsg);
+            throw new RuntimeException("Bybit API error: " + root.get("retMsg").getAsString());
         }
     }
 
@@ -126,9 +125,7 @@ public class BybitBuyCrypto {
 
     private String bytesToHex(byte[] bytes) {
         try (Formatter formatter = new Formatter()) {
-            for (byte b : bytes) {
-                formatter.format("%02x", b);
-            }
+            for (byte b : bytes) formatter.format("%02x", b);
             return formatter.toString();
         }
     }

@@ -3,6 +3,7 @@ package com.mySelfCode.algo.api.bybit;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,17 +24,26 @@ public class BybitTradeChecker {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
+    private final BotConfig botConfig;
+    private final BybitTimeService bybitTimeService;
 
     @Autowired
-    public BybitTradeChecker(WebClient.Builder webClientBuilder, BybitConfig bybitConfig) {
+    public BybitTradeChecker(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig, BybitTimeService bybitTimeService) {
         this.bybitConfig = bybitConfig;
+        this.botConfig = botConfig;
+        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .build();
     }
 
     public String checkTrade(String orderId) {
-        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+        if (botConfig.isSimulationMode()) {
+            logger.info("[SIMULATION] Bybit - order check - {}: Done", orderId);
+            return "Done";
+        }
+
+        String timestamp = String.valueOf(bybitTimeService.getServerTime());
         String recvWindow = "5000";
         String queryString = "category=spot&orderId=" + orderId;
         String payload = timestamp + bybitConfig.getKey() + recvWindow + queryString;
@@ -56,19 +66,19 @@ public class BybitTradeChecker {
 
             JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
             int retCode = root.get("retCode").getAsInt();
-            String status = "Done";
-            if (retCode != 0) {
-                status = "NotFound";
-            }
+
+            if (retCode != 0) return "NotFound";
 
             JsonObject result = root.getAsJsonObject("result");
             JsonArray list = result.getAsJsonArray("list");
 
             if (list == null || list.size() == 0) {
-                status = "InTrade";
+                logger.info("Bybit - order - {}: InTrade", orderId);
+                return "InTrade";
             }
-            logger.info("Bybit - order - {}: {}", orderId,  status);
-            return status;
+
+            logger.info("Bybit - order - {}: Done", orderId);
+            return "Done";
 
         } catch (Exception e) {
             logger.error("Error for check trade on bybit {}: {}", orderId, e.getMessage());
@@ -90,9 +100,7 @@ public class BybitTradeChecker {
 
     private String bytesToHex(byte[] bytes) {
         try (Formatter formatter = new Formatter()) {
-            for (byte b : bytes) {
-                formatter.format("%02x", b);
-            }
+            for (byte b : bytes) formatter.format("%02x", b);
             return formatter.toString();
         }
     }

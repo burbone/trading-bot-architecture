@@ -5,9 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.KucoinConfig;
-import com.mySelfCode.algo.dto.LastOrderIds;
-import com.mySelfCode.algo.dto.MinMountTrade;
-import com.mySelfCode.algo.dto.StarterInfo;
+import com.mySelfCode.algo.dto.TradingPair;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,36 +32,36 @@ public class KucoinBuyCrypto {
     private final BotConfig botConfig;
     private final WebClient webClient;
     private final KucoinConfig kucoinConfig;
-    private final StarterInfo starterInfo;
-    private final LastOrderIds lastOrderIds;
-    private final MinMountTrade minMountTrade;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public KucoinBuyCrypto(BotConfig botConfig, WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig, StarterInfo starterInfo, LastOrderIds lastOrderIds, MinMountTrade minMountTrade) {
+    public KucoinBuyCrypto(BotConfig botConfig, WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig) {
         this.botConfig = botConfig;
         this.kucoinConfig = kucoinConfig;
-        this.starterInfo = starterInfo;
-        this.lastOrderIds = lastOrderIds;
-        this.minMountTrade = minMountTrade;
         this.webClient = webClientBuilder
                 .baseUrl(kucoinConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
-    public void buyMarket(Double amount) {
-        String symbol = starterInfo.getSymbol().replaceAll(" ", "-");
+    public void buyMarket(TradingPair pair, double amount, int usdtPrecision) {
+        String symbol = pair.getKucoinSymbol();
+
+        if (botConfig.isSimulationMode()) {
+            String fakeOrderId = "SIM-KUCOIN-BUY-" + UUID.randomUUID().toString().substring(0, 8);
+            pair.setKucoinBuyOrderId(fakeOrderId);
+            logger.info("[SIMULATION] Kucoin - buy - {} - {} USDT - orderId: {}", symbol, amount, fakeOrderId);
+            return;
+        }
+
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String endpoint = "/api/v1/orders";
         String method = "POST";
 
         amount = amount * (1 - botConfig.getKucoinFee() * 5);
-
-        BigDecimal cQ = BigDecimal.valueOf(amount)
-                .setScale(minMountTrade.getMinUsdtPrecisionKucoin(), RoundingMode.FLOOR);
+        BigDecimal cQ = BigDecimal.valueOf(amount).setScale(usdtPrecision, RoundingMode.FLOOR);
 
         JsonObject orderData = new JsonObject();
         orderData.addProperty("type", "market");
@@ -95,14 +93,11 @@ public class KucoinBuyCrypto {
 
             JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
             JsonElement dataElement = root.get("data");
-            String orderId;
-            if (dataElement.isJsonObject()) {
-                orderId = dataElement.getAsJsonObject().get("orderId").getAsString();
-            } else {
-                orderId = dataElement.getAsString();
-            }
-            lastOrderIds.setKucoinBuyOrderId(orderId);
-            logger.info("Kucoin - buy - {} - {} - USDT - orderId: {}", symbol, amount, orderId);
+            String orderId = dataElement.isJsonObject()
+                    ? dataElement.getAsJsonObject().get("orderId").getAsString()
+                    : dataElement.getAsString();
+            pair.setKucoinBuyOrderId(orderId);
+            logger.info("Kucoin - buy - {} - {} USDT - orderId: {}", symbol, amount, orderId);
 
         } catch (Exception e) {
             this.accept = false;
@@ -114,7 +109,6 @@ public class KucoinBuyCrypto {
     private void validateResponse(String jsonResponse) {
         JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
         String code = root.get("code").getAsString();
-
         if (!"200000".equals(code)) {
             throw new RuntimeException("KuCoin API error: " + code);
         }
@@ -125,8 +119,7 @@ public class KucoinBuyCrypto {
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKeySpec);
-            byte[] hash = hmac.doFinal(strToSign.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            return Base64.getEncoder().encodeToString(hmac.doFinal(strToSign.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Ошибка при генерации подписи", e);
         }
@@ -137,8 +130,7 @@ public class KucoinBuyCrypto {
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKeySpec);
-            byte[] hash = hmac.doFinal(passphrase.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            return Base64.getEncoder().encodeToString(hmac.doFinal(passphrase.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Ошибка при генерации passphrase", e);
         }

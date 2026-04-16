@@ -4,9 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
-import com.mySelfCode.algo.dto.LastOrderIds;
-import com.mySelfCode.algo.dto.MinMountTrade;
-import com.mySelfCode.algo.dto.StarterInfo;
+import com.mySelfCode.algo.dto.TradingPair;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +21,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Formatter;
+import java.util.UUID;
 
 @Service
 public class BybitSellCrypto {
@@ -30,40 +29,43 @@ public class BybitSellCrypto {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
-    private final BybitCheckPrice bybitCheckPrice;
-    private final StarterInfo starterInfo;
     private final BotConfig botConfig;
-    private final LastOrderIds lastOrderIds;
-    private final MinMountTrade minMountTrade;
+    private final BybitTimeService bybitTimeService;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitSellCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig,
-                           BybitCheckPrice bybitCheckPrice, StarterInfo starterInfo, BotConfig botConfig, LastOrderIds lastOrderIds, MinMountTrade minMountTrade) {
+    public BybitSellCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig, BybitTimeService bybitTimeService) {
         this.bybitConfig = bybitConfig;
-        this.bybitCheckPrice = bybitCheckPrice;
-        this.starterInfo = starterInfo;
         this.botConfig = botConfig;
-        this.lastOrderIds = lastOrderIds;
-        this.minMountTrade = minMountTrade;
+        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
-    public void sellMarket(Double amount) {
-        String symbol = starterInfo.getSymbol().replaceAll(" ", "");
-        double[] prices = bybitCheckPrice.bybitCheckPrice();
-        double bidPrice = prices[0];
+    public void sellMarket(TradingPair pair, double amount, int cryptoPrecision) {
+        String symbol = pair.getBybitSymbol();
+
+        if (botConfig.isSimulationMode()) {
+            String fakeOrderId = "SIM-BYBIT-SELL-" + UUID.randomUUID().toString().substring(0, 8);
+            pair.setBybitSellOrderId(fakeOrderId);
+            logger.info("[SIMULATION] Bybit sell {} | {}$ | orderId={}", symbol, amount, fakeOrderId);
+            return;
+        }
+
+        double bidPrice = pair.getBybitBidPrice();
+        if (bidPrice <= 0) {
+            throw new RuntimeException("Bybit bid price is 0 for " + symbol + ", cannot calculate coin quantity");
+        }
+
         double coinQuantity = amount / bidPrice;
         coinQuantity = coinQuantity * (1 - botConfig.getBybitFee() * 5);
 
-        BigDecimal cQ = BigDecimal.valueOf(coinQuantity)
-                .setScale(minMountTrade.getMinCyptoPrecisionBybit(), RoundingMode.FLOOR);
-        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+        BigDecimal cQ = BigDecimal.valueOf(coinQuantity).setScale(cryptoPrecision, RoundingMode.FLOOR);
+        String timestamp = String.valueOf(bybitTimeService.getServerTime());
         String recvWindow = "5000";
 
         JsonObject orderData = new JsonObject();
@@ -96,13 +98,12 @@ public class BybitSellCrypto {
             JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
             JsonObject result = root.getAsJsonObject("result");
             String orderId = result.get("orderId").getAsString();
-            lastOrderIds.setBybitSellOrderId(orderId);
-
-            logger.info("Bybit - sell - {} - {}", symbol, amount);
+            pair.setBybitSellOrderId(orderId);
+            logger.info("Bybit sell {} | {}$ (~{} coins) | orderId={}", symbol, amount, cQ.toPlainString(), orderId);
 
         } catch (Exception e) {
             this.accept = false;
-            logger.error("Error for trade on bybit {} for amount {}: {}", symbol, amount, e.getMessage());
+            logger.error("Bybit sell error {} amount={}: {}", symbol, amount, e.getMessage());
             throw new RuntimeException("Error selling " + symbol + ": " + e.getMessage(), e);
         }
     }
@@ -110,10 +111,8 @@ public class BybitSellCrypto {
     private void validateResponse(String jsonResponse) {
         JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
         int retCode = root.get("retCode").getAsInt();
-
         if (retCode != 0) {
-            String retMsg = root.get("retMsg").getAsString();
-            throw new RuntimeException("Bybit API error: " + retMsg);
+            throw new RuntimeException("Bybit API error: " + root.get("retMsg").getAsString());
         }
     }
 
@@ -132,9 +131,7 @@ public class BybitSellCrypto {
 
     private String bytesToHex(byte[] bytes) {
         try (Formatter formatter = new Formatter()) {
-            for (byte b : bytes) {
-                formatter.format("%02x", b);
-            }
+            for (byte b : bytes) formatter.format("%02x", b);
             return formatter.toString();
         }
     }

@@ -8,90 +8,35 @@
 </head>
 <body>
 <div class="container" id="appContainer">
-    <!-- Шапка с информацией о символе -->
     <div class="header">
         <div class="password-row">
-            <input
-                    type="password"
-                    class="password-input top-input"
-                    id="password"
-                    placeholder="Пароль">
+            <input type="password" class="top-input" id="password" placeholder="Пароль">
         </div>
-        <div class="symbol-info">
-            <input
-                    type="text"
-                    class="symbol-input top-input"
-                    id="symbol"
-                    placeholder="Символ BTC USDT">
 
-            <input
-                    type="text"
-                    class="percent-input top-input"
-                    id="percent"
-                    placeholder="0,00">
+        <div class="pairs-section" id="pairsSection">
+            <div class="pair-row" id="pairRow0">
+                <input type="text" class="symbol-input top-input" placeholder="Символ BTC USDT">
+                <input type="text" class="percent-input top-input" placeholder="0,00">
+            </div>
+        </div>
 
-            <button
-                    type="button"
-                    class="top-status top-input status-stopped"
-                    id="statusDisplay">
+        <div class="header-actions">
+            <button type="button" class="btn-add" id="addPairBtn">+</button>
+            <button type="button" class="top-status top-input status-stopped" id="statusDisplay">
                 Остановлено
             </button>
         </div>
+
         <div class="form-errors" id="formErrors"></div>
     </div>
 
-    <div class="content">
-        <!-- Левая колонка с биржами -->
-        <div class="exchange-section">
-            <!-- Биржа Bybit -->
-            <div class="exchange-card">
-                <div class="exchange-name">Bybit</div>
-                <div class="balance-layout">
-                    <div class="balance-column">
-                        <div class="currency-label">USDT</div>
-                        <div class="value-box single" data-exchange="bybit" data-field="usdt">0</div>
-                    </div>
-                    <div class="balance-column balance-column-crypto">
-                        <div class="currency-label wide">Crypto</div>
-                        <div class="crypto-values">
-                            <div class="value-box" data-exchange="bybit" data-field="crypto">0</div>
-                            <div class="value-box" data-exchange="bybit" data-field="coins">0</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Биржа Kucoin -->
-            <div class="exchange-card">
-                <div class="exchange-name">Kucoin</div>
-                <div class="balance-layout">
-                    <div class="balance-column">
-                        <div class="currency-label">USDT</div>
-                        <div class="value-box single" data-exchange="kucoin" data-field="usdt">0</div>
-                    </div>
-                    <div class="balance-column balance-column-crypto">
-                        <div class="currency-label wide">Crypto</div>
-                        <div class="crypto-values">
-                            <div class="value-box" data-exchange="kucoin" data-field="crypto">0</div>
-                            <div class="value-box" data-exchange="kucoin" data-field="coins">0</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Правая колонка с историей -->
+    <div class="content" id="mainContent">
         <div class="history-section">
-            <div class="history-header">
-                <span>История</span>
-            </div>
-            <div class="history-list">
-                <!-- История будет загружаться динамически из /profile/history -->
-            </div>
+            <div class="history-header"><span>История</span></div>
+            <div class="history-list" id="historyList"></div>
         </div>
     </div>
 </div>
-
 <script src="js/main.js"></script>
 </body>
 </html>

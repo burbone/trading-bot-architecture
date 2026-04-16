@@ -3,7 +3,6 @@ package com.mySelfCode.algo.api.bybit;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mySelfCode.algo.cfg.BybitConfig;
-import com.mySelfCode.algo.dto.StarterInfo;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,24 +24,23 @@ public class BybitCancelOrder {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
-    private final StarterInfo starterInfo;
+    private final BybitTimeService bybitTimeService;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitCancelOrder(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, StarterInfo starterInfo) {
+    public BybitCancelOrder(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BybitTimeService bybitTimeService) {
         this.bybitConfig = bybitConfig;
-        this.starterInfo = starterInfo;
+        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
-    public void cancelOrder(String orderId) {
-        String symbol = starterInfo.getSymbol().replaceAll(" ", "");
-        String timestamp = String.valueOf(Instant.now().toEpochMilli());
+    public void cancelOrder(String symbol, String orderId) {
+        String timestamp = String.valueOf(bybitTimeService.getServerTime());
         String recvWindow = "5000";
 
         JsonObject orderData = new JsonObject();
@@ -66,12 +64,11 @@ public class BybitCancelOrder {
                     .block();
 
             validateResponse(jsonResponse);
-
             logger.info("Bybit - cancel - {} - {}", orderId, symbol);
 
         } catch (Exception e) {
             this.accept = false;
-            logger.error("Error to cancel order on bybit {} для {}: {}", orderId, symbol, e.getMessage());
+            logger.error("Error to cancel order on bybit {} for {}: {}", orderId, symbol, e.getMessage());
             throw new RuntimeException("Error cancelling order " + orderId + ": " + e.getMessage(), e);
         }
     }
@@ -79,10 +76,8 @@ public class BybitCancelOrder {
     private void validateResponse(String jsonResponse) {
         JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
         int retCode = root.get("retCode").getAsInt();
-
         if (retCode != 0) {
-            String retMsg = root.get("retMsg").getAsString();
-            throw new RuntimeException("Bybit API error: " + retMsg);
+            throw new RuntimeException("Bybit API error: " + root.get("retMsg").getAsString());
         }
     }
 
@@ -101,9 +96,7 @@ public class BybitCancelOrder {
 
     private String bytesToHex(byte[] bytes) {
         try (Formatter formatter = new Formatter()) {
-            for (byte b : bytes) {
-                formatter.format("%02x", b);
-            }
+            for (byte b : bytes) formatter.format("%02x", b);
             return formatter.toString();
         }
     }

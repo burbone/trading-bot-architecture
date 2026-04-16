@@ -19,6 +19,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class KucoinBalance {
@@ -39,7 +41,7 @@ public class KucoinBalance {
                 .build();
     }
 
-    public double getWalletBalance(String symbol) {
+    public double getBalance(String symbol) {
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String endpoint = "/api/v1/accounts?currency=" + symbol.toUpperCase() + "&type=trade";
         String method = "GET";
@@ -60,8 +62,7 @@ public class KucoinBalance {
                     .bodyToMono(String.class)
                     .block();
 
-            double balance = extractBalanceFromJson(jsonResponse, symbol.toUpperCase());
-            return balance;
+            return extractBalanceFromJson(jsonResponse, symbol.toUpperCase());
 
         } catch (Exception e) {
             this.accept = false;
@@ -70,9 +71,9 @@ public class KucoinBalance {
         }
     }
 
-    public double getCoinBalance(String symbol) {
+    public Map<String, Double> getAllCoins() {
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
-        String endpoint = "/api/v1/accounts?currency=" + symbol.toUpperCase() + "&type=trade";
+        String endpoint = "/api/v1/accounts?type=trade";
         String method = "GET";
 
         String strToSign = timestamp + method + endpoint;
@@ -91,14 +92,34 @@ public class KucoinBalance {
                     .bodyToMono(String.class)
                     .block();
 
-            double coinBalance = extractBalanceFromJson(jsonResponse, symbol.toUpperCase());
-            return coinBalance;
+            return extractAllCoins(jsonResponse);
 
         } catch (Exception e) {
-            this.accept = false;
-            logger.error("Error take coin balance on kucoin {}: {}", symbol, e.getMessage());
-            throw new RuntimeException("Error getting coin balance for " + symbol + ": " + e.getMessage(), e);
+            logger.error("Error getting all coins from kucoin: {}", e.getMessage());
+            throw new RuntimeException("Error getting all coins: " + e.getMessage(), e);
         }
+    }
+
+    private Map<String, Double> extractAllCoins(String jsonResponse) {
+        Map<String, Double> result = new HashMap<>();
+        try {
+            JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
+            String code = root.get("code").getAsString();
+            if (!"200000".equals(code)) throw new RuntimeException("KuCoin API error: " + code);
+
+            JsonArray data = root.getAsJsonArray("data");
+            for (int i = 0; i < data.size(); i++) {
+                JsonObject account = data.get(i).getAsJsonObject();
+                String currency = account.get("currency").getAsString();
+                double available = account.get("available").getAsDouble();
+                if (available > 0) {
+                    result.merge(currency, available, Double::sum);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error parsing all coins from kucoin: {}", e.getMessage());
+        }
+        return result;
     }
 
     private double extractBalanceFromJson(String jsonResponse, String targetCurrency) {
@@ -126,13 +147,15 @@ public class KucoinBalance {
         }
     }
 
+    public double getWalletBalance(String symbol) { return getBalance(symbol); }
+    public double getCoinBalance(String symbol) { return getBalance(symbol); }
+
     private String generateSignature(String strToSign, String secret) {
         try {
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKeySpec);
-            byte[] hash = hmac.doFinal(strToSign.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            return Base64.getEncoder().encodeToString(hmac.doFinal(strToSign.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Error for generate signature", e);
         }
@@ -143,8 +166,7 @@ public class KucoinBalance {
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKeySpec);
-            byte[] hash = hmac.doFinal(passphrase.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            return Base64.getEncoder().encodeToString(hmac.doFinal(passphrase.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Error for generate passphrase", e);
         }

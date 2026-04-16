@@ -2,6 +2,7 @@ package com.mySelfCode.algo.api.kucoin;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.KucoinConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,27 +23,31 @@ public class KucoinTradeChecker {
 
     private final WebClient webClient;
     private final KucoinConfig kucoinConfig;
+    private final BotConfig botConfig;
 
     @Autowired
-    public KucoinTradeChecker(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig) {
+    public KucoinTradeChecker(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig, BotConfig botConfig) {
         this.kucoinConfig = kucoinConfig;
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(kucoinConfig.getBaseUrl())
                 .build();
     }
 
     public String checkTrade(String orderId) {
+        if (botConfig.isSimulationMode()) {
+            logger.info("[SIMULATION] Kucoin - order check - {}: Done", orderId);
+            return "Done";
+        }
+
         String timestamp = String.valueOf(System.currentTimeMillis());
         String endpoint = "/api/v1/orders/" + orderId;
-        String queryParams = "?symbol=MNT-USDT";
-        String requestPath = endpoint + queryParams;
-
-        String signature = generateSignature(timestamp, "GET", requestPath, "");
+        String signature = generateSignature(timestamp, "GET", endpoint, "");
         String encryptedPassphrase = generatePassphrase();
 
         try {
             String jsonResponse = webClient.get()
-                    .uri(requestPath)
+                    .uri(endpoint)
                     .header("KC-API-KEY", kucoinConfig.getKey())
                     .header("KC-API-SIGN", signature)
                     .header("KC-API-TIMESTAMP", timestamp)
@@ -54,29 +59,15 @@ public class KucoinTradeChecker {
 
             JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
 
-            if (!root.has("code")) {
-                logger.error("Kucoin - order - {}: Missing 'code' in response", orderId);
-                return "Error";
-            }
+            if (!root.has("code")) return "Error";
 
             String code = root.get("code").getAsString();
+            if (!"200000".equals(code)) return "Error";
 
-            if (!"200000".equals(code)) {
-                logger.error("Kucoin - order - {}: Error code {}", orderId, code);
-                return "Error";
-            }
-
-            if (!root.has("data") || root.get("data").isJsonNull()) {
-                logger.error("Kucoin - order - {}: Missing or null 'data' in response", orderId);
-                return "Error";
-            }
+            if (!root.has("data") || root.get("data").isJsonNull()) return "Error";
 
             JsonObject data = root.getAsJsonObject("data");
-
-            if (!data.has("isActive") || !data.has("cancelExist")) {
-                logger.error("Kucoin - order - {}: Missing 'isActive' or 'cancelExist' in data", orderId);
-                return "Error";
-            }
+            if (!data.has("isActive") || !data.has("cancelExist")) return "Error";
 
             boolean isActive = data.get("isActive").getAsBoolean();
             boolean cancelExist = data.get("cancelExist").getAsBoolean();
@@ -103,12 +94,9 @@ public class KucoinTradeChecker {
             String strToSign = timestamp + method + requestPath + body;
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(
-                    kucoinConfig.getSecret().getBytes(StandardCharsets.UTF_8),
-                    "HmacSHA256"
-            );
+                    kucoinConfig.getSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKeySpec);
-            byte[] hash = hmac.doFinal(strToSign.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            return Base64.getEncoder().encodeToString(hmac.doFinal(strToSign.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Ошибка генерации подписи", e);
         }
@@ -118,12 +106,10 @@ public class KucoinTradeChecker {
         try {
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(
-                    kucoinConfig.getSecret().getBytes(StandardCharsets.UTF_8),
-                    "HmacSHA256"
-            );
+                    kucoinConfig.getSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKeySpec);
-            byte[] hash = hmac.doFinal(kucoinConfig.getPassphrase().getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            return Base64.getEncoder().encodeToString(
+                    hmac.doFinal(kucoinConfig.getPassphrase().getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Ошибка генерации passphrase", e);
         }

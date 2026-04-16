@@ -12,4 +12,6 @@ import org.springframework.stereotype.Component;
 public class BotConfig {
     private double kucoinFee;
     private double bybitFee;
+    private boolean simulationMode;
+    private String password;
 }

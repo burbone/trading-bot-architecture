@@ -10,4 +10,5 @@ import org.springframework.stereotype.Component;
 public class Status {
     private volatile boolean status = false;
     private volatile boolean statusForAlgo = false;
+    private volatile boolean globalRebalanceDone = false;
 }

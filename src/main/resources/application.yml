@@ -20,27 +20,17 @@ server:
 logging:
   level:
     root: INFO
-    com.arbitrage.crypto_arbitrage: DEBUG
+    com.mySelfCode.algo: DEBUG
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
-# ===== BOT CONFIGURATION =====
 bot:
-  # Комиссии бирж (в процентах)
-  # Проверьте актуальные комиссии на биржах!
-  kucoin-fee: 0.001
-  bybit-fee: 0.001
-
-  # Интервал проверки цен (мс)
+  password: Maxbur010!
+  kucoin-fee: 0.002
+  bybit-fee: 0.00135
   update-interval-ms: 1000
-
-  # РЕЖИМ РАБОТЫ
-  # false = симуляция (безопасно, без реальных денег)
-  # true = реальная торговля (ВНИМАНИЕ: реальные деньги!)
   real-trading-enabled: true
-
-  # Симуляция спреда (только для режима симуляции)
-  simulated-spread: 0.001
+  simulation-mode: false
 
 reactor:
   netty:
@@ -49,13 +39,8 @@ reactor:
         quic:
           enabled: false
 
-# ===== KUCOIN API =====
 kucoin:
   api:
-    # ВАЖНО: Используйте переменные окружения!
-    # export KUCOIN_API_KEY="your_api_key"
-    # export KUCOIN_API_SECRET="your_api_secret"
-    # export KUCOIN_API_PASSPHRASE="your_passphrase"
     key: "6987661a12bd0a0001141b7e"
     secret: "f6ee8ff4-d59d-4777-aef4-b360ded6bfa2"
     passphrase: "Maxbur010!"
@@ -65,12 +50,8 @@ kucoin:
     read-timeout: 30000
     requests-per-second: 10
 
-# ===== BYBIT API =====
 bybit:
   api:
-    # ВАЖНО: Используйте переменные окружения!
-    # export BYBIT_API_KEY="your_api_key"
-    # export BYBIT_API_SECRET="your_api_secret"
     key: "zhNIGHtzO5cIeVBbhr"
     secret: "kh4emvt1iwbtwZ70JpPniglEctOjUtkTvEYJ"
     base-url: https://api.bybit.com
@@ -79,7 +60,6 @@ bybit:
     read-timeout: 30000
     requests-per-second: 10
 
-# ===== HTTP CLIENT =====
 http:
   client:
     timeout-seconds: 30

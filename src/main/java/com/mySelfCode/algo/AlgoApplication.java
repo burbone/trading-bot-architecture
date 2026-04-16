@@ -11,6 +11,14 @@ public class AlgoApplication {
 		SpringApplication.run(AlgoApplication.class, args);
 	}
 }
+/*
+  kucoin-fee: 0.002
+  bybit-fee: 0.00135
+TON USDT 0.125%
+SPX USDT 0.125
+VIRTUAL USDT 0.125
+MNT USDT 0.125
+*/
 
 /*
 P1 — цена на дорогой бирже (Bybit 0.7047)
