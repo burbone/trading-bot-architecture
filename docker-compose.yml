@@ -1,16 +1,43 @@
 version: '3.8'
+
 services:
-  app:
-    build: .
+  trading-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading_bot
+    restart: unless-stopped
+
     ports:
       - "127.0.0.1:8080:8080"
+
     volumes:
       - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
     environment:
-      - JAVA_TOOL_OPTIONS=-Duser.language=ru -Duser.country=RU
-    restart: unless-stopped
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx768m -XX:MaxMetaspaceSize=128m
+      - SPRING_PROFILES_ACTIVE=production
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 1200M
+        reservations:
+          cpus: '0.5'
+          memory: 768M
+
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

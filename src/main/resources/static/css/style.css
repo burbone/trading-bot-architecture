@@ -301,3 +301,59 @@ body {
 .status-entry { background: #fffc48; color: #1a1a1a; }
 .status-rebalance { background: #f0c128; }
 .status-stop { background: #ff2929; color: #fff; }
+
+.completed-trades-section {
+    background: #d4d4d4;
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--card-inner-gap);
+    max-height: 300px;
+    margin-top: var(--section-gap);
+}
+
+.completed-trades-header {
+    background: #fff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--history-header-height);
+}
+
+.completed-trades-header span {
+    font-size: 16px;
+    font-weight: 700;
+    color: #161616;
+}
+
+.completed-trades-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--card-inner-gap);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.completed-trade-row {
+    display: grid;
+    grid-template-columns: 140px 80px 120px 140px 120px 120px;
+    gap: var(--card-inner-gap);
+    align-items: center;
+    min-height: 42px;
+}
+
+.trade-cell {
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    color: #161616;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

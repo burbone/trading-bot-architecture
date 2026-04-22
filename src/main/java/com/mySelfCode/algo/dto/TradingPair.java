@@ -28,6 +28,10 @@ public class TradingPair {
     private volatile String kucoinBuyOrderId;
     private volatile String kucoinSellOrderId;
 
+    private volatile double entryBybitPrice;
+    private volatile double entryKucoinPrice;
+    private volatile double totalBalanceBefore;
+
     private volatile String process = "NON";
     private final AtomicBoolean checkInProgress = new AtomicBoolean(false);
     private volatile boolean buyOnBybit = false;

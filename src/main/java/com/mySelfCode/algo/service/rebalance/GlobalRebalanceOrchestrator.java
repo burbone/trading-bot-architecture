@@ -97,13 +97,13 @@ public class GlobalRebalanceOrchestrator {
                     pairs.forEach(p -> {
                         p.setProcess("READY_FOR_ALGO");
                         p.getCheckInProgress().set(false);
-                        History h = new History();
-                        h.setType("R");
-                        h.setSymbol(p.getSymbol());
-                        h.setBybitPrice((p.getBybitAskPrice() + p.getBybitBidPrice()) / 2);
-                        h.setKucoinPrice((p.getKucoinAskPrice() + p.getKucoinBidPrice()) / 2);
-                        historyResponse.addToHistory(h);
                     });
+                    History h = new History();
+                    h.setType("R");
+                    h.setSymbol("GLOBAL");
+                    h.setBybitPrice(0);
+                    h.setKucoinPrice(0);
+                    historyResponse.addToHistory(h);
                     log.info("Global rebalance completed successfully");
                 } else {
                     pairs.forEach(p -> {
@@ -253,13 +253,13 @@ public class GlobalRebalanceOrchestrator {
                     pairs.forEach(p -> {
                         p.setProcess("READY_FOR_ALGO");
                         p.getCheckInProgress().set(false);
-                        History h = new History();
-                        h.setType("R");
-                        h.setSymbol(p.getSymbol());
-                        h.setBybitPrice((p.getBybitAskPrice() + p.getBybitBidPrice()) / 2);
-                        h.setKucoinPrice((p.getKucoinAskPrice() + p.getKucoinBidPrice()) / 2);
-                        historyResponse.addToHistory(h);
                     });
+                    History h = new History();
+                    h.setType("R");
+                    h.setSymbol("GLOBAL");
+                    h.setBybitPrice(0);
+                    h.setKucoinPrice(0);
+                    historyResponse.addToHistory(h);
                     log.info("Initial rebalance completed successfully");
                 } else {
                     pairs.forEach(p -> {

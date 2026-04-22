@@ -1,7 +1,10 @@
 package com.mySelfCode.algo.service.algorithm;
 
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.dto.*;
+import com.mySelfCode.algo.entity.CompletedTradeStorage;
 import com.mySelfCode.algo.entity.HistoryResponse;
+import com.mySelfCode.algo.service.analytics.ProfitCalculator;
 import com.mySelfCode.algo.service.trading.PairTradeService;
 import com.mySelfCode.algo.service.trading.TradeStatusChecker;
 import lombok.RequiredArgsConstructor;
@@ -18,13 +21,17 @@ public class TradingStateMachine {
     private final EntryConditionEvaluator entryEvaluator;
     private final HistoryResponse historyResponse;
     private final TradingPairRegistry registry;
+    private final BotConfig botConfig;
+    private final ProfitCalculator profitCalculator;
+    private final CompletedTradeStorage completedTradeStorage;
+    private final ExchangeUsdt exchangeUsdt;
 
     public void process(TradingPair pair, MinTradeInfo info) {
         switch (pair.getProcess()) {
             case "READY_FOR_ALGO" -> handleReady(pair, info);
             case "IN_ALGO" -> handleInAlgo(pair);
             case "ERROR" -> handleError(pair);
-            case "REBALANCING" -> { /* no log */}
+            case "REBALANCING" -> { /* no log */ }
         }
     }
 
@@ -47,6 +54,9 @@ public class TradingStateMachine {
             pairTradeService.buyBybitSellKucoin(pair, opp.buyAmountUsdt(), opp.sellAmountUsdt(), info);
         }
 
+        pair.setEntryBybitPrice((pair.getBybitAskPrice() + pair.getBybitBidPrice()) / 2);
+        pair.setEntryKucoinPrice((pair.getKucoinAskPrice() + pair.getKucoinBidPrice()) / 2);
+
         pair.getWait().set(15);
         pair.getCheckInProgress().set(true);
         log.info("[{}] entry orders placed: {}", pair.getSymbol(), opp.direction());
@@ -66,6 +76,11 @@ public class TradingStateMachine {
         if ("Done".equals(bybitStatus) && "Done".equals(kucoinStatus)) {
             pair.getCheckInProgress().set(false);
             pair.setProcess("IN_ALGO");
+            pair.setEntryBybitPrice((pair.getBybitAskPrice() + pair.getBybitBidPrice()) / 2);
+            pair.setEntryKucoinPrice((pair.getKucoinAskPrice() + pair.getKucoinBidPrice()) / 2);
+            double totalBalance = exchangeUsdt.getBybitUsdt() + exchangeUsdt.getKucoinUsdt() +
+                    registry.getPairs().stream().mapToDouble(p -> p.getBybitCrypto() + p.getKucoinCrypto()).sum();
+            pair.setTotalBalanceBefore(totalBalance);
             addHistoryRecord(pair, "D");
             log.info("[{}] entered algo", pair.getSymbol());
         } else if ("Error".equals(bybitStatus) || "Error".equals(kucoinStatus) || remaining <= 0) {
@@ -83,7 +98,7 @@ public class TradingStateMachine {
 
         int logTick = pair.getWaitAlgoLog().decrementAndGet();
         if (logTick <= 0) {
-            pair.getWaitAlgoLog().set(60);
+            pair.getWaitAlgoLog().set(300);
             if (midBybit > 0) {
                 double diffPercent = Math.abs(midBybit - midKucoin) / midBybit * 100;
                 log.info("[{}] IN_ALGO waiting | bybit={} kucoin={} diff={}%",
@@ -94,11 +109,29 @@ public class TradingStateMachine {
                     pair.getSymbol(), midBybit, midKucoin);
         }
 
-        if (midBybit > 0 && Math.abs(midBybit - midKucoin) / midBybit * 100 <= 0.001) {
+        double threshold = 1 + botConfig.getReverseSpread();
+        boolean exitCondition = false;
+
+        if (pair.isBuyOnBybit()) {
+            if (pair.getBybitBidPrice() > pair.getKucoinAskPrice() * threshold) {
+                exitCondition = true;
+            }
+        } else {
+            if (pair.getKucoinBidPrice() > pair.getBybitAskPrice() * threshold) {
+                exitCondition = true;
+            }
+        }
+
+        if (exitCondition) {
             addHistoryRecord(pair, "W");
             pair.setProcess("READY_TO_EXIT_FROM_ALGO");
             registry.unlock();
-            log.info("[{}] EXIT: prices converged", pair.getSymbol());
+            double exitBybit = (pair.getBybitAskPrice() + pair.getBybitBidPrice()) / 2;
+            double exitKucoin = (pair.getKucoinAskPrice() + pair.getKucoinBidPrice()) / 2;
+            CompletedTrade trade = profitCalculator.calculate(pair, pair.getEntryBybitPrice(),
+                    pair.getEntryKucoinPrice(), exitBybit, exitKucoin, pair.getTotalBalanceBefore());
+            completedTradeStorage.add(trade);
+            log.info("[{}] EXIT: reverse spread reached (threshold 0.2%)", pair.getSymbol());
         }
     }
 

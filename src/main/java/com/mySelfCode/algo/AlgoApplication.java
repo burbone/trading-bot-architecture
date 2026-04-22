@@ -12,6 +12,19 @@ public class AlgoApplication {
 	}
 }
 /*
+ssh -i C:\Users\Максим\.ssh\vps_key root@45.153.188.200 -t "docker logs -f trading_bot"
+ton 0,1 остальное 0,2 - kucoin
+0.135 - bybit
+start 16.04.2026 22:10 618,34(bybit) 616,65(kucoin)
+MNT USDT     0,66525  0,66475
+TON USDT     1,4155   1,41525
+SPX USDT     0,3467   0,34675
+VIRTUAL USDT 0,7293   0,72925
+ */
+/*
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP5/o20cqVn/PfnK4IQJDN4r6Nm4zsXtlISxqfKPNW+E РњР°РєСЃРёРј@DESKTOP-SAH7IR5
+ */
+/*
   kucoin-fee: 0.002
   bybit-fee: 0.00135
 TON USDT 0.125%

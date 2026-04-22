@@ -14,4 +14,5 @@ public class BotConfig {
     private double bybitFee;
     private boolean simulationMode;
     private String password;
+    private double reverseSpread;
 }

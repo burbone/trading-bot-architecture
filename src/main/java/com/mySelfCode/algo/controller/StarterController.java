@@ -40,7 +40,7 @@ public class StarterController {
 
         List<TradingPair> pairs = request.getPairs().stream()
                 .map(p -> new TradingPair(p.getSymbol(), Double.parseDouble(p.getPercent())
-                //        + (botConfig.getKucoinFee() + botConfig.getBybitFee()) * 100
+                        + ((botConfig.getKucoinFee() + botConfig.getBybitFee()) * 100)
                 ))
                 .toList();
         registry.setPairs(pairs);

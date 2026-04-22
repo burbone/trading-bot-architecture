@@ -28,6 +28,7 @@ bot:
   password: Maxbur010!
   kucoin-fee: 0.002
   bybit-fee: 0.00135
+  reverse-spread: 0.2
   update-interval-ms: 1000
   real-trading-enabled: true
   simulation-mode: false

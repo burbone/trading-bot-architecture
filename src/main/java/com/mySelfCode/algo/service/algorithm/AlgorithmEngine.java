@@ -27,7 +27,7 @@ public class AlgorithmEngine {
     private volatile Map<String, MinTradeInfo> minTradeInfoMap;
 
     private long lastStatsLog = 0;
-    private static final long STATS_LOG_INTERVAL = 60_000;
+    private static final long STATS_LOG_INTERVAL = 300_000;
 
     public void tick() {
         if (!status.isStatusForAlgo() || minTradeInfoMap == null) return;
