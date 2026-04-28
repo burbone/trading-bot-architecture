@@ -48,22 +48,18 @@ public class KucoinSellCrypto {
 
     public void sellMarket(TradingPair pair, double amount, int cryptoPrecision) {
         String symbol = pair.getKucoinSymbol();
-
         if (botConfig.isSimulationMode()) {
             String fakeOrderId = "SIM-KUCOIN-SELL-" + UUID.randomUUID().toString().substring(0, 8);
             pair.setKucoinSellOrderId(fakeOrderId);
             logger.info("[SIMULATION] Kucoin sell {} | {}$ | orderId={}", symbol, amount, fakeOrderId);
             return;
         }
-
         double bidPrice = pair.getKucoinBidPrice();
         if (bidPrice <= 0) {
             throw new RuntimeException("Kucoin bid price is 0 for " + symbol + ", cannot calculate coin quantity");
         }
-
         double coinQuantity = amount / bidPrice;
         coinQuantity = coinQuantity * (1 - botConfig.getKucoinFee() * 5);
-
         BigDecimal cQ = BigDecimal.valueOf(coinQuantity).setScale(cryptoPrecision, RoundingMode.FLOOR);
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String endpoint = "/api/v1/orders";

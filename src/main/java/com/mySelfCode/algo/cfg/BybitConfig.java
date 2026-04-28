@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 public class BybitConfig {
-    private String key;
-    private String secret;
-    private String baseUrl;
+    private String key = "";
+    private String secret = "";
+    private String baseUrl = "https://api.bybit.com";
 }

@@ -48,14 +48,12 @@ public class KucoinBuyCrypto {
 
     public void buyMarket(TradingPair pair, double amount, int usdtPrecision) {
         String symbol = pair.getKucoinSymbol();
-
         if (botConfig.isSimulationMode()) {
             String fakeOrderId = "SIM-KUCOIN-BUY-" + UUID.randomUUID().toString().substring(0, 8);
             pair.setKucoinBuyOrderId(fakeOrderId);
             logger.info("[SIMULATION] Kucoin - buy - {} - {} USDT - orderId: {}", symbol, amount, fakeOrderId);
             return;
         }
-
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String endpoint = "/api/v1/orders";
         String method = "POST";
@@ -88,7 +86,6 @@ public class KucoinBuyCrypto {
                     .bodyToMono(String.class)
                     .block();
 
-            logger.info("Kucoin - buy - response: {}", jsonResponse);
             validateResponse(jsonResponse);
 
             JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();

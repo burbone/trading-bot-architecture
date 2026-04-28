@@ -30,16 +30,14 @@ public class BybitBuyCrypto {
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
     private final BotConfig botConfig;
-    private final BybitTimeService bybitTimeService;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitBuyCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig, BybitTimeService bybitTimeService) {
+    public BybitBuyCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
         this.bybitConfig = bybitConfig;
         this.botConfig = botConfig;
-        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -48,17 +46,15 @@ public class BybitBuyCrypto {
 
     public void buyMarket(TradingPair pair, double amount, int usdtPrecision) {
         String symbol = pair.getBybitSymbol();
-
         if (botConfig.isSimulationMode()) {
             String fakeOrderId = "SIM-BYBIT-BUY-" + UUID.randomUUID().toString().substring(0, 8);
             pair.setBybitBuyOrderId(fakeOrderId);
             logger.info("[SIMULATION] Bybit - buy - {} - {} USDT - orderId: {}", symbol, amount, fakeOrderId);
             return;
         }
-
         amount = amount * (1 - botConfig.getBybitFee() * 5);
         BigDecimal amountBig = BigDecimal.valueOf(amount).setScale(usdtPrecision, RoundingMode.FLOOR);
-        String timestamp = String.valueOf(bybitTimeService.getServerTime());
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String recvWindow = "5000";
 
         JsonObject orderData = new JsonObject();

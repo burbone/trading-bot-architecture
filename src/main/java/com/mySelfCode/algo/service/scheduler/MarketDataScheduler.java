@@ -17,18 +17,11 @@ public class MarketDataScheduler {
     private final PriceService priceService;
     private final BalanceService balanceService;
 
-    private long lastDataLog = 0;
-
     @Scheduled(fixedRate = 1000)
     public void updateMarketData() {
         if (!status.isStatus()) return;
 
-        priceService.updateAllPricesAsync().join();
-        balanceService.updateAllBalancesAsync().join();
-
-        if (System.currentTimeMillis() - lastDataLog > 60_000) {
-            log.info("Market data updated (prices and balances)");
-            lastDataLog = System.currentTimeMillis();
-        }
+        priceService.updateAllPrices();
+        balanceService.updateAllBalances();
     }
 }

@@ -3,6 +3,7 @@ package com.mySelfCode.algo.api.bybit;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -17,9 +18,9 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Formatter;
 
 @Service
 public class BybitBalance {
@@ -27,15 +28,15 @@ public class BybitBalance {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
-    private final BybitTimeService bybitTimeService;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitBalance(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BybitTimeService bybitTimeService) {
+    public BybitBalance(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
         this.bybitConfig = bybitConfig;
-        this.bybitTimeService = bybitTimeService;
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -43,7 +44,10 @@ public class BybitBalance {
     }
 
     public double getBalance(String symbol) {
-        String timestamp = String.valueOf(bybitTimeService.getServerTime());
+        if (botConfig.isSimulationMode()) {
+            return 100.0;
+        }
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String recvWindow = "5000";
         String accountType = "UNIFIED";
 
@@ -75,6 +79,11 @@ public class BybitBalance {
     }
 
     public Map<String, Double> getAllCoins() {
+        if (botConfig.isSimulationMode()) {
+            Map<String, Double> mock = new HashMap<>();
+            mock.put("USDT", 100.0);
+            return mock;
+        }
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String recvWindow = "5000";
         String accountType = "UNIFIED";

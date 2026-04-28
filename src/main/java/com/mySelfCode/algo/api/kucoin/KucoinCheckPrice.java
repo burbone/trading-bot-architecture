@@ -2,6 +2,7 @@ package com.mySelfCode.algo.api.kucoin;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.KucoinConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -15,18 +16,24 @@ public class KucoinCheckPrice {
     private static final Logger logger = LoggerFactory.getLogger(KucoinCheckPrice.class);
 
     private final WebClient webClient;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public KucoinCheckPrice(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig) {
+    public KucoinCheckPrice(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig, BotConfig botConfig) {
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(kucoinConfig.getBaseUrl())
                 .build();
     }
 
     public double[] kucoinCheckPrice(String kucoinSymbol) {
+        if (botConfig.isSimulationMode()) {
+            double base = 100.0 + Math.random() * 10;
+            return new double[]{base * 0.999, base * 1.001};
+        }
         try {
             String response = webClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -37,10 +44,7 @@ public class KucoinCheckPrice {
                     .bodyToMono(String.class)
                     .block();
 
-            double[] prices = extractPricesFromJson(response);
-            //logger.debug("Success take prices from kucoin {}: ask={}, bid={}", kucoinSymbol, prices[1], prices[0]);
-
-            return prices;
+            return extractPricesFromJson(response);
         } catch (Exception e) {
             this.accept = false;
             logger.error("Error take prices from kucoin for {}: {}", kucoinSymbol, e.getMessage());

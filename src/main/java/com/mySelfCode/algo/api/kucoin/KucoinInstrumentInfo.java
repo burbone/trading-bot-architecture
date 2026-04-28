@@ -1,8 +1,8 @@
 package com.mySelfCode.algo.api.kucoin;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.KucoinConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -17,14 +17,14 @@ public class KucoinInstrumentInfo {
     private static final Logger logger = LoggerFactory.getLogger(KucoinInstrumentInfo.class);
 
     private final WebClient webClient;
-    private final KucoinConfig kucoinConfig;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public KucoinInstrumentInfo(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig) {
-        this.kucoinConfig = kucoinConfig;
+    public KucoinInstrumentInfo(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig, BotConfig botConfig) {
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(kucoinConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -33,6 +33,9 @@ public class KucoinInstrumentInfo {
 
     public double[] getMinTradeInfo(String symbol) {
         symbol = symbol.replaceAll(" ", "-");
+        if (botConfig.isSimulationMode()) {
+            return new double[]{1.0, 0.1, 0.0001, 0.0001};
+        }
 
         try {
             String jsonResponse = webClient.get()
@@ -65,9 +68,6 @@ public class KucoinInstrumentInfo {
             double quoteMinSize = Double.parseDouble(data.get("quoteMinSize").getAsString());
             double baseIncrement = Double.parseDouble(data.get("baseIncrement").getAsString());
             double quoteIncrement = Double.parseDouble(data.get("quoteIncrement").getAsString());
-
-            logger.info("Kucoin min trade info - minCrypto: {}, minUsdt: {}, precisionCrypto: {}, precisionUsdt: {}",
-                    baseMinSize, quoteMinSize, baseIncrement, quoteIncrement);
 
             return new double[]{baseMinSize, quoteMinSize, baseIncrement, quoteIncrement};
         } catch (Exception e) {

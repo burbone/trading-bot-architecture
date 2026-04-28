@@ -24,17 +24,15 @@ public class PriceService {
 
     private final ExecutorService executor = Executors.newFixedThreadPool(8);
 
-    public CompletableFuture<Void> updateAllPricesAsync() {
+    public void updateAllPrices() {
         List<TradingPair> pairs = registry.getPairs();
-        if (pairs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
-        }
+        if (pairs.isEmpty()) return;
 
         CompletableFuture<?>[] futures = pairs.stream()
                 .map(pair -> CompletableFuture.runAsync(() -> updatePairPrices(pair), executor))
                 .toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(futures);
+        CompletableFuture.allOf(futures).join();
     }
 
     private void updatePairPrices(TradingPair pair) {

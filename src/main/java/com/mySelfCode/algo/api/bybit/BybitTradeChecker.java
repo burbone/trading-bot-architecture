@@ -25,13 +25,11 @@ public class BybitTradeChecker {
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
     private final BotConfig botConfig;
-    private final BybitTimeService bybitTimeService;
 
     @Autowired
-    public BybitTradeChecker(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig, BybitTimeService bybitTimeService) {
+    public BybitTradeChecker(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
         this.bybitConfig = bybitConfig;
         this.botConfig = botConfig;
-        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .build();
@@ -42,8 +40,7 @@ public class BybitTradeChecker {
             logger.info("[SIMULATION] Bybit - order check - {}: Done", orderId);
             return "Done";
         }
-
-        String timestamp = String.valueOf(bybitTimeService.getServerTime());
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String recvWindow = "5000";
         String queryString = "category=spot&orderId=" + orderId;
         String payload = timestamp + bybitConfig.getKey() + recvWindow + queryString;

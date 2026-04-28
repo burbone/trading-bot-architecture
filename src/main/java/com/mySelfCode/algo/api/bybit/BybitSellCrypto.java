@@ -30,16 +30,14 @@ public class BybitSellCrypto {
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
     private final BotConfig botConfig;
-    private final BybitTimeService bybitTimeService;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitSellCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig, BybitTimeService bybitTimeService) {
+    public BybitSellCrypto(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
         this.bybitConfig = bybitConfig;
         this.botConfig = botConfig;
-        this.bybitTimeService = bybitTimeService;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -48,24 +46,20 @@ public class BybitSellCrypto {
 
     public void sellMarket(TradingPair pair, double amount, int cryptoPrecision) {
         String symbol = pair.getBybitSymbol();
-
         if (botConfig.isSimulationMode()) {
             String fakeOrderId = "SIM-BYBIT-SELL-" + UUID.randomUUID().toString().substring(0, 8);
             pair.setBybitSellOrderId(fakeOrderId);
             logger.info("[SIMULATION] Bybit sell {} | {}$ | orderId={}", symbol, amount, fakeOrderId);
             return;
         }
-
         double bidPrice = pair.getBybitBidPrice();
         if (bidPrice <= 0) {
             throw new RuntimeException("Bybit bid price is 0 for " + symbol + ", cannot calculate coin quantity");
         }
-
         double coinQuantity = amount / bidPrice;
         coinQuantity = coinQuantity * (1 - botConfig.getBybitFee() * 5);
-
         BigDecimal cQ = BigDecimal.valueOf(coinQuantity).setScale(cryptoPrecision, RoundingMode.FLOOR);
-        String timestamp = String.valueOf(bybitTimeService.getServerTime());
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String recvWindow = "5000";
 
         JsonObject orderData = new JsonObject();

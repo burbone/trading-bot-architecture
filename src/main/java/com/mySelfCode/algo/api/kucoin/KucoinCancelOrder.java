@@ -2,6 +2,7 @@ package com.mySelfCode.algo.api.kucoin;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.KucoinConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -25,13 +26,15 @@ public class KucoinCancelOrder {
 
     private final WebClient webClient;
     private final KucoinConfig kucoinConfig;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public KucoinCancelOrder(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig) {
+    public KucoinCancelOrder(WebClient.Builder webClientBuilder, KucoinConfig kucoinConfig, BotConfig botConfig) {
         this.kucoinConfig = kucoinConfig;
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(kucoinConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -39,6 +42,10 @@ public class KucoinCancelOrder {
     }
 
     public void cancelOrder(String orderId) {
+        if (botConfig.isSimulationMode()) {
+            logger.info("[SIMULATION] Kucoin - cancel - {}", orderId);
+            return;
+        }
         String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String endpoint = "/api/v1/orders/" + orderId;
         String method = "DELETE";
@@ -73,7 +80,6 @@ public class KucoinCancelOrder {
     private void validateResponse(String jsonResponse) {
         JsonObject root = JsonParser.parseString(jsonResponse).getAsJsonObject();
         String code = root.get("code").getAsString();
-
         if (!"200000".equals(code)) {
             throw new RuntimeException("KuCoin API error: " + code);
         }

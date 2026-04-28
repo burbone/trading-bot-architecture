@@ -2,6 +2,7 @@ package com.mySelfCode.algo.api.bybit;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -24,15 +25,15 @@ public class BybitCancelOrder {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
-    private final BybitTimeService bybitTimeService;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitCancelOrder(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BybitTimeService bybitTimeService) {
+    public BybitCancelOrder(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
         this.bybitConfig = bybitConfig;
-        this.bybitTimeService = bybitTimeService;
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -40,7 +41,11 @@ public class BybitCancelOrder {
     }
 
     public void cancelOrder(String symbol, String orderId) {
-        String timestamp = String.valueOf(bybitTimeService.getServerTime());
+        if (botConfig.isSimulationMode()) {
+            logger.info("[SIMULATION] Bybit - cancel - {} - {}", orderId, symbol);
+            return;
+        }
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String recvWindow = "5000";
 
         JsonObject orderData = new JsonObject();

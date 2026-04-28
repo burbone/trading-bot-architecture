@@ -39,7 +39,6 @@ public class KucoinTradeChecker {
             logger.info("[SIMULATION] Kucoin - order check - {}: Done", orderId);
             return "Done";
         }
-
         String timestamp = String.valueOf(System.currentTimeMillis());
         String endpoint = "/api/v1/orders/" + orderId;
         String signature = generateSignature(timestamp, "GET", endpoint, "");

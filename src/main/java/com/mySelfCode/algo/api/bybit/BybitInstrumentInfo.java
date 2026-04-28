@@ -3,6 +3,7 @@ package com.mySelfCode.algo.api.bybit;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -18,13 +19,15 @@ public class BybitInstrumentInfo {
 
     private final WebClient webClient;
     private final BybitConfig bybitConfig;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitInstrumentInfo(WebClient.Builder webClientBuilder, BybitConfig bybitConfig) {
+    public BybitInstrumentInfo(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
         this.bybitConfig = bybitConfig;
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -33,6 +36,9 @@ public class BybitInstrumentInfo {
 
     public double[] getMinTradeInfo(String symbol) {
         symbol = symbol.replaceAll(" ", "");
+        if (botConfig.isSimulationMode()) {
+            return new double[]{0.01, 5.0, 0.01, 1e-6};
+        }
 
         try {
             String finalSymbol = symbol;
@@ -76,9 +82,6 @@ public class BybitInstrumentInfo {
                 double minOrderAmt = Double.parseDouble(lotSizeFilter.get("minOrderAmt").getAsString());
                 double basePrecision = Double.parseDouble(lotSizeFilter.get("basePrecision").getAsString());
                 double quotePrecision = Double.parseDouble(lotSizeFilter.get("quotePrecision").getAsString());
-
-                logger.info("Bybit min trade info - minCrypto: {}, minUsdt: {}, precisionCrypto: {}, precisionUsdt: {}",
-                        minOrderQty, minOrderAmt, basePrecision, quotePrecision);
 
                 return new double[]{minOrderQty, minOrderAmt, basePrecision, quotePrecision};
             }

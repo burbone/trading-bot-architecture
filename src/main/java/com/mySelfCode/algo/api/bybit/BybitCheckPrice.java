@@ -3,6 +3,7 @@ package com.mySelfCode.algo.api.bybit;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mySelfCode.algo.cfg.BotConfig;
 import com.mySelfCode.algo.cfg.BybitConfig;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -16,18 +17,24 @@ public class BybitCheckPrice {
     private static final Logger logger = LoggerFactory.getLogger(BybitCheckPrice.class);
 
     private final WebClient webClient;
+    private final BotConfig botConfig;
 
     @Getter
     private boolean accept = true;
 
     @Autowired
-    public BybitCheckPrice(WebClient.Builder webClientBuilder, BybitConfig bybitConfig) {
+    public BybitCheckPrice(WebClient.Builder webClientBuilder, BybitConfig bybitConfig, BotConfig botConfig) {
+        this.botConfig = botConfig;
         this.webClient = webClientBuilder
                 .baseUrl(bybitConfig.getBaseUrl())
                 .build();
     }
 
     public double[] bybitCheckPrice(String bybitSymbol) {
+        if (botConfig.isSimulationMode()) {
+            double base = 100.0 + Math.random() * 10;
+            return new double[]{base * 0.999, base * 1.001};
+        }
         try {
             String response = webClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -39,10 +46,8 @@ public class BybitCheckPrice {
                     .bodyToMono(String.class)
                     .block();
 
-            double[] prices = extractPricesFromJson(response);
-            //logger.debug("Success take prices from bybit for {}: ask={}, bid={}", bybitSymbol, prices[1], prices[0]);
+            return extractPricesFromJson(response);
 
-            return prices;
         } catch (Exception e) {
             this.accept = false;
             logger.error("Error take prices from bybit for {}: {}", bybitSymbol, e.getMessage());

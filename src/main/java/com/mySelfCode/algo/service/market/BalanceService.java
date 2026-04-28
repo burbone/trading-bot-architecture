@@ -26,7 +26,7 @@ public class BalanceService {
 
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
 
-    public CompletableFuture<Void> updateAllBalancesAsync() {
+    public void updateAllBalances() {
         List<TradingPair> pairs = registry.getPairs();
 
         CompletableFuture<Void> usdtFuture = CompletableFuture.runAsync(() -> {
@@ -38,10 +38,10 @@ public class BalanceService {
                 .map(pair -> CompletableFuture.runAsync(() -> updatePairBalances(pair), executor))
                 .toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(
+        CompletableFuture.allOf(
                 CompletableFuture.allOf(coinFutures),
                 usdtFuture
-        );
+        ).join();
     }
 
     private void updatePairBalances(TradingPair pair) {
